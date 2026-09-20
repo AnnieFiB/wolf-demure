@@ -1,0 +1,32 @@
+[
+    {
+        "pidgin": "how far",
+        "english": "hello / how are you?",
+        "example": "How far my guy?"
+    },
+    {
+        "pidgin": "wetin",
+        "english": "what",
+        "example": "Wetin you dey do?"
+    },
+    {
+        "pidgin": "wahala",
+        "english": "trouble or problem",
+        "example": "I no want wahala."
+    },
+    {
+        "pidgin": "abeg",
+        "english": "please",
+        "example": "Abeg help me."
+    },
+    {
+        "pidgin": "dey",
+        "english": "to be / currently doing",
+        "example": "I dey work."
+    },
+    {
+        "pidgin": "chop",
+        "english": "eat / food",
+        "example": "Make we go chop."
+    }
+]
