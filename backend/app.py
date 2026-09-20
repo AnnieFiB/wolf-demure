@@ -17,26 +17,36 @@ with open(DICTIONARY_FILE, "r", encoding="utf-8") as file:
 
 @app.get("/")
 def home():
-    return {
-        "message": "Wolf Demure API is running"
-    }
-
+    return { "message": "Wolf Demure API is running" }
 
 @app.get("/search")
 def search(word: str):
+    # Clean what the user typed
+    query = word.lower().strip()
 
-    word = word.lower().strip()
+    results = []
 
+    # Search every dictionary entry
     for entry in dictionary:
+        pidgin = entry["pidgin"].lower()
+        english = entry["english"].lower()
 
-        if entry["pidgin"].lower() == word:
+        # Search both Pidgin and English
+        if query in pidgin or query in english:
+            results.append(entry)
 
-            return {
-                "found": True,
-                "result": entry
-            }
+    # Return matches
+    if results:
+        return {
+            "found": True,
+            "count": len(results),
+            "results": results
+        }
 
+    # Nothing found
     return {
         "found": False,
+        "count": 0,
+        "results": [],
         "message": f"No definition found for '{word}'"
     }

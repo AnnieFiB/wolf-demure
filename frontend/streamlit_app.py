@@ -1,58 +1,100 @@
 
 import streamlit as st
-import requests
+import json
+from pathlib import Path
 
-# Address of our FastAPI backend
-API_URL = "http://127.0.0.1:8000"
 
+# -------------------------
 # Page configuration
+# -------------------------
+
 st.set_page_config(
     page_title="Wolf Demure",
     page_icon="🐺",
     layout="centered"
 )
 
-# App heading
+
+# -------------------------
+# Load dictionary
+# -------------------------
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DICTIONARY_FILE = BASE_DIR / "data" / "pidgin_dictionary.json"
+
+
+@st.cache_data
+def load_dictionary():
+    with open(DICTIONARY_FILE, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+dictionary = load_dictionary()
+
+
+# -------------------------
+# App
+# -------------------------
+
 st.title("🐺 Wolf Demure")
+
 st.write("Nigerian Pidgin Dictionary")
 
-# Search box
 word = st.text_input(
-    "Enter a Pidgin word or phrase",
-    placeholder="e.g. how far"
+    "Enter a Pidgin or English word",
+    placeholder="e.g. wahala, trouble, abeg, please"
 )
 
-# Search button
+
+# -------------------------
+# Search
+# -------------------------
+
 if st.button("Search"):
 
     if not word:
+
         st.warning("Enter a word or phrase first.")
 
     else:
-        try:
-            response = requests.get(
-                f"{API_URL}/search",
-                params={"word": word}
-            )
 
-            data = response.json()
+        query = word.lower().strip()
 
-            if data["found"]:
+        results = []
 
-                result = data["result"]
+        for entry in dictionary:
 
-                st.success(result["english"])
+            pidgin = entry["pidgin"].lower()
+            english = entry["english"].lower()
 
-                st.subheader("Example")
-                st.write(result["example"])
+            if query in pidgin or query in english:
+                results.append(entry)
 
-            else:
-                st.warning(
-                    f"No definition found for '{word}'."
+
+        # -------------------------
+        # Display results
+        # -------------------------
+
+        if results:
+
+            st.write(f"Found {len(results)} result(s)")
+
+            for result in results:
+
+                st.subheader(result["pidgin"])
+
+                st.write(
+                    f"**English:** {result['english']}"
                 )
 
-        except requests.exceptions.ConnectionError:
+                st.write(
+                    f"**Example:** {result['example']}"
+                )
 
-            st.error(
-                "Cannot connect to the Wolf Demure API."
+                st.divider()
+
+        else:
+
+            st.warning(
+                f"No definition found for '{word}'."
             )
