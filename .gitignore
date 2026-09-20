@@ -1,0 +1,26 @@
+*.npy
+NLP-GenerativeAI/models/index.pkl
+NLP-GenerativeAI/models/index.pkl
+*.pkl
+NLP-GenerativeAI/models/mistral-7b-instruct-v0.2.Q6_K.gguf
+.env
+*.pdf
+*.npy
+*.zip
+*.h5
+*.hdf5
+*.ckpt
+*.log
+*.tsv
+*.json
+*.xlsx
+*.ipynb_checkpoints
+*.ipynb
+*.html
+*.pyc
+*.jpeg
+
+# MLflow
+mlruns/
+mlflow.db
+mlflow.log
