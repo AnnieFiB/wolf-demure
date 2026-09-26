@@ -1,207 +1,159 @@
 
 import sys
+from html import escape
 from pathlib import Path
 import streamlit as st
 
+BASE_DIR=Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path: sys.path.append(str(BASE_DIR))
 
-# ============================================================
-# Project setup
-# ============================================================
+from services.dictionary import search_dictionary,get_word_variants
+from services.corpus import get_word_examples
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+st.set_page_config(page_title="Wolf Demure v2",page_icon="🐺",layout="centered")
 
-if str(BASE_DIR) not in sys.path:
-    sys.path.append(str(BASE_DIR))
+st.markdown("""
+<style>
+.block-container{padding-top:2rem;max-width:760px}
+.result-block{margin:.7rem 0 .2rem}
+.result-word{font-size:1.7rem;font-weight:700;line-height:1.15;color:inherit}
+.entry-type,.part-of-speech{font-size:.72rem;font-weight:600;color:#999;text-transform:uppercase;margin:.15rem 0}
+.pronunciation{font-size:.95rem;color:#bbb;margin:.1rem 0 .25rem}
+.variant{font-size:.85rem;color:#999;margin:.1rem 0 .3rem}
+.definition-block{margin:.3rem 0 .5rem}
+.definition{font-size:1rem;line-height:1.4;color:inherit}
+.source{font-size:.72rem;color:#888}
+.example-block{margin-bottom:.7rem}
+.example-pidgin{font-weight:600;color:inherit}
+.example-english{font-size:.9rem;color:#aaa}
+.example-source{font-size:.7rem;color:#888}
+div[data-testid="stButton"] button{border-color:#555!important;color:inherit!important}
+div[data-testid="stButton"] button:hover{border-color:#888!important}
+div[data-baseweb="select"]>div{border-color:#666!important}
+div[data-baseweb="select"]>div:focus-within{border-color:#888!important;box-shadow:0 0 0 1px #888!important}
+</style>
+""",unsafe_allow_html=True)
 
-from services.dictionary import search_dictionary
+# Load dictionary terms for autocomplete
+@st.cache_data
+def load_terms():
+    import sqlite3
+    db=BASE_DIR/"data"/"processed"/"wolf_demure.db"
+    con=sqlite3.connect(db)
+    rows=con.execute("""
+        SELECT word FROM words
+        UNION
+        SELECT variant FROM variants
+        ORDER BY word
+    """).fetchall()
+    con.close()
+    return [r[0] for r in rows]
 
+terms=load_terms()
 
-# ============================================================
-# Page configuration
-# ============================================================
+st.title("🐺 Wolf Demure v2")
+st.caption("Nigerian Pidgin Dictionary")
 
-st.set_page_config(
-    page_title="Wolf Demure",
-    page_icon="🐺",
-    layout="centered"
+# Searchable autocomplete
+query=st.selectbox(
+    "Search Pidgin or English",
+    options=terms,
+    index=None,
+    placeholder="Type Pidgin or English...",
+    accept_new_options=True
 )
 
+search=st.button("Search",use_container_width=True)
 
-# ============================================================
-# Compact styling
-# ============================================================
+if query and (search or query):
+    results=search_dictionary(query)
 
-st.markdown(
-    """
-    <style>
-
-    /* Reduce space between result blocks */
-    .result-block {
-        margin-top: 0.8rem;
-        margin-bottom: 1rem;
-        padding-bottom: 0.6rem;
-        border-bottom: 1px solid rgba(128,128,128,0.25);
-    }
-
-    /* Result word */
-    .result-word {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 0;
-        padding: 0;
-    }
-
-    /* Pronunciation */
-    .pronunciation {
-        margin-top: 0.2rem;
-        margin-bottom: 0.4rem;
-        font-size: 1rem;
-    }
-
-    /* Part of speech */
-    .part-of-speech {
-        font-size: 0.8rem;
-        opacity: 0.65;
-        text-transform: uppercase;
-        margin-top: 0.5rem;
-        margin-bottom: 0.1rem;
-    }
-
-    /* Definition */
-    .definition {
-        font-size: 1rem;
-        margin-top: 0;
-        margin-bottom: 0.25rem;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# Header
-# ============================================================
-
-st.title("🐺 Wolf Demure")
-st.subheader("Nigerian Pidgin Dictionary v2")
-
-
-# ============================================================
-# Search form
-# Enter OR Search button
-# ============================================================
-
-with st.form("search_form"):
-
-    query = st.text_input(
-        "Enter a Pidgin or English word",
-        placeholder="e.g. wahala, trouble, eat, patapata"
-    )
-
-    search = st.form_submit_button("Search")
-
-
-# ============================================================
-# Search results
-# ============================================================
-
-if search:
-
-    query = query.strip()
-
-    if not query:
-
-        st.warning("Enter a word to search.")
+    if not results:
+        st.warning(f"No definition found for '{query}'.")
 
     else:
+        grouped={}
 
-        results = search_dictionary(query)
+        for r in results:
+            wid=r["id"]
 
-        if not results:
+            if wid not in grouped:
+                grouped[wid]={
+                    "id":wid,
+                    "word":r["word"],
+                    "type":r.get("entry_type") or "word",
+                    "ipa":r.get("ipa"),
+                    "phonetic":r.get("phonetic"),
+                    "definitions":[]
+                }
 
-            st.warning(
-                f"No definition found for '{query}'."
-            )
+            grouped[wid]["definitions"].append({
+                "pos":r.get("part_of_speech"),
+                "definition":r.get("definition"),
+                "source":r.get("source")
+            })
 
-        else:
+        if len(grouped)>1:
+            st.caption(f"{len(grouped)} results")
 
-            # Group rows by word
-            grouped = {}
+        for i,data in enumerate(grouped.values()):
 
-            for row in results:
+            variants=get_word_variants(data["id"])
 
-                word = row["word"]
+            html=f"""
+            <div class="result-block">
+            <div class="result-word">{escape(data["word"])}</div>
+            <div class="entry-type">{escape(data["type"])}</div>
+            """
 
-                if word not in grouped:
+            pron=data["ipa"] or data["phonetic"]
 
-                    grouped[word] = {
-                        "ipa": row["ipa"],
-                        "entries": []
-                    }
+            if pron:
+                html+=f'<div class="pronunciation">/{escape(pron.strip("/"))}/</div>'
 
-                grouped[word]["entries"].append({
-                    "part_of_speech": row["part_of_speech"],
-                    "definition": row["definition"]
-                })
+            if variants:
+                html+=f'<div class="variant">Also: {escape(" · ".join(variants))}</div>'
 
+            for d in data["definitions"]:
 
-            # ================================================
-            # Display results
-            # ================================================
+                if not d["definition"]: continue
 
-            for word, data in grouped.items():
+                html+='<div class="definition-block">'
 
-                html = '<div class="result-block">'
+                if d["pos"]:
+                    html+=f'<div class="part-of-speech">{escape(d["pos"])}</div>'
 
-                # Word
-                html += (
-                    f'<div class="result-word">'
-                    f'{word}'
-                    f'</div>'
-                )
+                html+=f'<div class="definition">{escape(d["definition"])}</div>'
 
-                # Pronunciation
-                if data["ipa"]:
+                if d["source"]:
+                    html+=f'<div class="source">{escape(d["source"])}</div>'
 
-                    html += (
-                        f'<div class="pronunciation">'
-                        f'🔊 <b>Pronunciation:</b> '
-                        f'{data["ipa"]}'
-                        f'</div>'
-                    )
+                html+='</div>'
 
-                # Definitions
-                for entry in data["entries"]:
+            html+='</div>'
+            st.markdown(html,unsafe_allow_html=True)
 
-                    part_of_speech = entry[
-                        "part_of_speech"
-                    ]
+            examples=get_word_examples(data["word"],limit=3)
 
-                    definition = entry[
-                        "definition"
-                    ]
+            if examples:
+                with st.expander(f"Examples ({len(examples)})"):
+                    for ex in examples:
 
-                    if part_of_speech:
+                        html=f"""
+                        <div class="example-block">
+                        <div class="example-pidgin">
+                        {escape(ex["pidgin_text"])}
+                        </div>
+                        """
 
-                        html += (
-                            f'<div class="part-of-speech">'
-                            f'{part_of_speech}'
-                            f'</div>'
-                        )
+                        if ex.get("english_text"):
+                            html+=f'<div class="example-english">{escape(ex["english_text"])}</div>'
 
-                    if definition:
+                        if ex.get("source"):
+                            html+=f'<div class="example-source">{escape(ex["source"])}</div>'
 
-                        html += (
-                            f'<div class="definition">'
-                            f'{definition}'
-                            f'</div>'
-                        )
+                        html+='</div>'
+                        st.markdown(html,unsafe_allow_html=True)
 
-                html += '</div>'
-
-                st.markdown(
-                    html,
-                    unsafe_allow_html=True
-                )
+            if i<len(grouped)-1:
+                st.divider()

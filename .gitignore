@@ -23,3 +23,9 @@ NLP-GenerativeAI/models/mistral-7b-instruct-v0.2.Q6_K.gguf
 mlruns/
 mlflow.db
 mlflow.log
+
+# Raw/intermediate data
+data/**/*.json
+
+# Secrets
+.streamlit/secrets.toml
